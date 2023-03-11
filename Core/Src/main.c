@@ -72,6 +72,19 @@ TIM_HandleTypeDef htim1;
 char str_seg[2]="";
 unsigned int segundos = 30;
 Sys_status status = NORMAL ;
+
+FATFS fs; // file system
+FIL fil; // file
+FRESULT fresult; // to store the result
+char buffer[1024]; // to store data
+
+UINT br, bw; // file read/write count
+
+/* capacity related variables */
+FATFS *pfs;
+DWORD fre_clust;
+uint32_t total, free_space;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -87,6 +100,11 @@ static void MX_SPI2_Init(void);
 /* USER CODE BEGIN 0 */
 void trigger_alarm(char* msg){
 
+	fresult = f_open (&fil, "log.txt", FA_OPEN_ALWAYS  | FA_WRITE);
+	fresult= f_puts(msg, &fil);
+	fresult=f_close(&fil);
+
+
 	HAL_GPIO_WritePin(Led_GPIO_Port, Led_Pin, GPIO_PIN_SET);
 	//Encender Alarma
 	sprintf(str_seg,"%u",segundos);
@@ -98,7 +116,13 @@ void trigger_alarm(char* msg){
 	lcd_send_string(str_seg);
 
 
+
+
 	if(HAL_GPIO_ReadPin(Button_GPIO_Port, Button_Pin)){
+
+		fresult = f_open (&fil, "log.txt", FA_OPEN_ALWAYS  | FA_WRITE);
+		fresult= f_puts("Reinicio Contador", &fil);
+		fresult=f_close(&fil);
 
 		lcd_put_cur(1, 0);
 		lcd_send_string("Reinicio Contador");
@@ -154,6 +178,22 @@ int main(void)
   lcd_send_string("Motor Saver");
   HAL_Delay(3000);
   lcd_clear();
+
+  //Mount SD
+  fresult = f_mount(&fs,"",0);
+
+  if(fresult!=FR_OK){
+	  lcd_put_cur(0, 2);
+	  lcd_send_string("Error SD");
+	  HAL_Delay(3000);
+	  lcd_clear();
+  }
+  else {
+	  lcd_put_cur(0, 2);
+	  lcd_send_string("OK SD");
+	  HAL_Delay(3000);
+	  lcd_clear();
+  }
 
   // Initialize status of Relay
   HAL_GPIO_WritePin(Relay_GPIO_Port, Relay_Pin, GPIO_PIN_RESET);
