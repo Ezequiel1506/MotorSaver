@@ -86,14 +86,14 @@ SPI_HandleTypeDef hspi2;
 TIM_HandleTypeDef htim1;
 
 /* USER CODE BEGIN PV */
-char str_seg[2]="";
+char str_seg[8]="";
 unsigned int segundos = 30;
 Sys_status status = NORMAL ;
 
 FATFS fs; // file system
 FIL fil; // file
 FRESULT fresult; // to store the result
-char buffer[15]; // to store data
+char date_time_screen[15]; // to store data
 
 UINT br, bw; // file read/write count
 
@@ -157,56 +157,50 @@ void Get_Time (void)
 	time.year = bcdToDec(get_time[6]);
 }
 
-void trigger_alarm(char* msg){
-	char string_log [23];
+void print_information(char* status, char* date){
+	  lcd_clear();
+	  lcd_put_cur(0, 0);
+	  lcd_send_string(status);
+	  lcd_put_cur(1, 0);
+	  lcd_send_string(date);
+	  HAL_Delay(100);
+  }
 
-	Get_Time();
-	sprintf (string_log,"%02d:%02d:%02d %02d-%02d-%02d ---> ", time.hour, time.minutes, time.seconds, time.dayofmonth, time.month, time.year);
+void record_log(char date[23], char* msg){
 
 	fresult = f_open (&fil, "log.txt", FA_OPEN_ALWAYS  | FA_WRITE);
-	fresult= f_puts(string_log, &fil);
+	fresult= f_puts(date, &fil);
 	fresult= f_puts(msg, &fil);
 	fresult= f_puts("\n", &fil);
 	fresult=f_close(&fil);
+}
 
+void trigger_alarm(char* msg){
+	char date_time_log [25];
+
+	Get_Time();
+	sprintf (date_time_log,"%02d:%02d:%02d %02d-%02d-%02d ---> ", time.hour, time.minutes, time.seconds, time.dayofmonth, time.month, time.year);
+	record_log(date_time_log,msg);
 	HAL_GPIO_WritePin(Led_GPIO_Port, Led_Pin, GPIO_PIN_SET);
 	//Encender Alarma
-
-	sprintf(str_seg,"%u",segundos);
-
-	lcd_clear();
-	lcd_put_cur(0, 0);
-	lcd_send_string(msg);
-	lcd_put_cur(1, 0);
-	lcd_send_string(str_seg);
-
-
-
+	sprintf(str_seg,"Temp: %u",segundos);
+	print_information(msg, str_seg);
 
 	if(HAL_GPIO_ReadPin(Button_GPIO_Port, Button_Pin)){
 		Get_Time();
-		sprintf (string_log,"%02d:%02d:%02d %02d-%02d-%02d ---> ", time.hour, time.minutes, time.seconds, time.dayofmonth, time.month, time.year);
-
-		fresult = f_open (&fil, "log.txt", FA_OPEN_ALWAYS  | FA_WRITE);
-		fresult= f_puts(string_log, &fil);
-		fresult= f_puts("Reinicio Contador", &fil);
-		fresult= f_puts("\n", &fil);
-		fresult=f_close(&fil);
-
-		lcd_put_cur(1, 0);
-		lcd_send_string("Reinicio Contador");
+		sprintf (date_time_log,"%02d:%02d:%02d %02d-%02d-%02d ---> ", time.hour, time.minutes, time.seconds, time.dayofmonth, time.month, time.year);
+		record_log(date_time_log,"Reinicio Contador");
+		print_information(msg, "Reinicio Contador");
 		segundos=30;
 	}
 
 	if(segundos==0){
 		status = OFF;
 	}
+
 	segundos--;
 	HAL_Delay(1000);
-
 }
-
-
 
 /* USER CODE END 0 */
 
@@ -283,6 +277,8 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  Get_Time();
+	  sprintf (date_time_screen, "%02d:%02d %02d-%02d-%02d", time.hour, time.minutes, time.dayofmonth, time.month, time.year);
 	  switch (status)
 	  {
 	  	  case NORMAL:
@@ -298,14 +294,7 @@ int main(void)
 	  			  status = ALARMED_BY_PRESSION;
 	  		  }
 
-	  		  Get_Time();
-	  		  sprintf (buffer, "%02d:%02d %02d-%02d-%02d", time.hour, time.minutes, time.dayofmonth, time.month, time.year);
-	  		  lcd_clear();
-	  		  lcd_put_cur(0, 0);
-	  		  lcd_send_string("ESTADO OK");
-	  		  lcd_put_cur(1, 0);
-	  		  lcd_send_string(buffer);
-	  		  HAL_Delay(100);
+	  		  print_information("ESTADO OK", date_time_screen);
 	  		  break;
 
 	  	  case ALARMED_BY_TEMPERATURE:
@@ -319,23 +308,16 @@ int main(void)
 	  	  case OFF:
 	  		  // Set relay's status HIGH -> This should interrupt current of motor
   		      HAL_GPIO_WritePin(Relay_GPIO_Port, Relay_Pin, GPIO_PIN_RESET);
-
-  		      lcd_clear();
-  		      lcd_put_cur(0, 0);
-  		      lcd_send_string("MOTOR APAGADO");
-  		      HAL_Delay(100);
+  		      print_information("MOTOR APAGADO", date_time_screen);
+	  		  record_log(date_time_screen,"Se apago el motor");
 
   		      // Check sensors. If both are ok next status is NORMAL.
 	  		  if(!HAL_GPIO_ReadPin(Temp_GPIO_Port, Temp_Pin) && !HAL_GPIO_ReadPin(Pres_GPIO_Port, Pres_Pin)){
 	  			  status = NORMAL;
 	  			  segundos = 30;
+		  		  record_log(date_time_screen,"Parametros OK");
 	  		  }
 	  		  break;
-
-
-
-
-
 
 	  }
 
